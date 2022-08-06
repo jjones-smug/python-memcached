@@ -59,9 +59,9 @@ import threading
 import time
 import zlib
 
-import six
-
 import pickle
+
+import six
 
 
 def cmemcache_hash(key):
@@ -216,6 +216,8 @@ class Client(threading.local):
         self.cache_cas = cache_cas
         self.reset_cas()
         self.do_check_key = check_keys
+
+        self.buckets = []
 
         # Allow users to modify pickling/unpickling behavior
         self.pickleProtocol = pickleProtocol
@@ -642,7 +644,7 @@ class Client(threading.local):
         try:
             server.send_cmd(fullcmd)
             if noreply:
-                return
+                return None
             line = server.readline()
             if line is None or line.strip() == b'NOT_FOUND':
                 return None
@@ -976,13 +978,6 @@ class Client(threading.local):
         elif val_type == int:
             flags |= Client._FLAG_INTEGER
             val = '%d' % val
-            if six.PY3:
-                val = val.encode('ascii')
-            # force no attempt to compress this silly string.
-            min_compress_len = 0
-        elif six.PY2 and isinstance(val, long):  # noqa: F821
-            flags |= Client._FLAG_LONG
-            val = str(val)
             if six.PY3:
                 val = val.encode('ascii')
             # force no attempt to compress this silly string.
