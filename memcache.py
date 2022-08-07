@@ -59,9 +59,9 @@ import threading
 import time
 import zlib
 
-import six
-
 import pickle
+
+import six
 
 
 def cmemcache_hash(key):
