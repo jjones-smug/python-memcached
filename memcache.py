@@ -1282,11 +1282,9 @@ class Client(threading.local):
         elif flags & Client._FLAG_INTEGER:
             val = int(buf)
         elif flags & Client._FLAG_LONG:
-            if six.PY3:
-                val = int(buf)
-            else:
-                val = long(buf)  # noqa: F821
+            val = int(buf)
         elif flags & Client._FLAG_PICKLE:
+            # pylint: disable=broad-except
             try:
                 file = BytesIO(buf)
                 unpickler = self.unpickler(file)
@@ -1296,6 +1294,7 @@ class Client(threading.local):
             except Exception as e:
                 self.debuglog('Pickle error: %s\n' % e)
                 return None
+            # pylint: enable=broad-except
         else:
             self.debuglog("unknown flags on get: %x\n" % flags)
             raise ValueError('Unknown flags on get: %x' % flags)
