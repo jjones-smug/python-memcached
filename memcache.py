@@ -126,7 +126,7 @@ class Client(threading.local):
     @group Integers: incr, decr
     @group Removal: delete, delete_multi
     @sort: __init__, set_servers, forget_dead_hosts, disconnect_all,
-           debuglog,\ set, set_multi, add, replace, get, get_multi,
+           debuglog, set, set_multi, add, replace, get, get_multi,
            incr, decr, delete, delete_multi
     """
     _FLAG_PICKLE = 1 << 0
@@ -397,9 +397,9 @@ class Client(threading.local):
                 continue
             s.flush()
 
-    def debuglog(self, str):
+    def debuglog(self, msg):
         if self.debug:
-            sys.stderr.write("MemCached: %s\n" % str)
+            sys.stderr.write("MemCached: %s\n" % msg)
 
     def _statlog(self, func):
         if func not in self.stats:
