@@ -1471,8 +1471,7 @@ class _Host():
                 self.mark_dead('connection closed in readline()')
                 if raise_exception:
                     raise _ConnectionDeadError()
-                else:
-                    return ''
+                return ''
 
             buf += data
         self.buffer = buf[index + 2:]
@@ -1494,9 +1493,9 @@ class _Host():
         self_socket_recv = self.socket.recv
         buf = self.buffer
         while len(buf) < rlen:
-            foo = self_socket_recv(max(rlen - len(buf), 4096))
-            buf += foo
-            if not foo:
+            _foo = self_socket_recv(max(rlen - len(buf), 4096))
+            buf += _foo
+            if not _foo:
                 raise _Error('Read %d bytes, expecting %d, '
                              'read returned 0 length bytes' % (len(buf), rlen))
         self.buffer = buf[rlen:]
@@ -1511,15 +1510,17 @@ class _Host():
         if self.deaduntil:
             d = " (dead until %d)" % self.deaduntil
 
+        # pylint: disable=no-else-return
         if self.family == socket.AF_INET:
             return "inet:%s:%d%s" % (self.address[0], self.address[1], d)
         elif self.family == socket.AF_INET6:
             return "inet6:[%s]:%d%s" % (self.address[0], self.address[1], d)
         else:
             return "unix:%s%s" % (self.address, d)
-
+        # pylint: enable=no-else-return
 
 def _doctest():
+    # pylint: disable=import-self,import-outside-toplevel
     import doctest
     import memcache
     servers = ["127.0.0.1:11211"]
@@ -1530,6 +1531,3 @@ def _doctest():
     print("Doctests: %s" % (results,))
     if results.failed:
         sys.exit(1)
-
-
-# vim: ts=4 sw=4 et :
