@@ -217,8 +217,6 @@ class Client(threading.local):
         self.reset_cas()
         self.do_check_key = check_keys
 
-        self.buckets = []
-
         # Allow users to modify pickling/unpickling behavior
         self.pickleProtocol = pickleProtocol
         self.pickler = pickler
@@ -415,7 +413,10 @@ class Client(threading.local):
             s.deaduntil = 0
 
     def _init_buckets(self):
+        # Do not copy this to the __init__() function! That will break the code
+        # pylint: disable=attribute-defined-outside-init
         self.buckets = []
+        # pylint: enable=attribute-defined-outside-init
         for server in self.servers:
             for _ in range(server.weight):
                 self.buckets.append(server)
