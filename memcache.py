@@ -45,6 +45,9 @@ More detailed documentation is available in the L{Client} class.
 
 """
 
+# pylint: disable=consider-using-f-string,invalid-name,missing-function-docstring,too-many-arguments,too-many-locals,missing-class-docstring,unused-variable
+# pylint: disable=global-statement,super-with-arguments
+
 from __future__ import print_function
 
 import binascii
@@ -58,11 +61,7 @@ import zlib
 
 import six
 
-if six.PY2:
-    # With Python 2, the faster C implementation has to be imported explicitly.
-    import cPickle as pickle
-else:
-    import pickle
+import pickle
 
 
 def cmemcache_hash(key):
