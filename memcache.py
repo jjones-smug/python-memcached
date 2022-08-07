@@ -217,6 +217,8 @@ class Client(threading.local):
         self.reset_cas()
         self.do_check_key = check_keys
 
+        self.buckets = []
+
         # Allow users to modify pickling/unpickling behavior
         self.pickleProtocol = pickleProtocol
         self.pickler = pickler
@@ -642,7 +644,6 @@ class Client(threading.local):
         try:
             server.send_cmd(fullcmd)
             if noreply:
-#???                return
                 return None
             line = server.readline()
             if line is None or line.strip() == b'NOT_FOUND':
