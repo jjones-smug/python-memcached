@@ -1253,9 +1253,9 @@ class Client(threading.local):
 
         # pylint: disable=no-else-return
         if line and line[:5] == b'VALUE':
-            resp, rkey, flags, len = line.split()
+            resp, rkey, flags, _len = line.split()
             flags = int(flags)
-            rlen = int(len)
+            rlen = int(_len)
             return (rkey, flags, rlen)
         else:
             return (None, None, None)
