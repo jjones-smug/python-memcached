@@ -511,31 +511,33 @@ class Client(threading.local):
             try:
                 for key in skeys:
                     server.expect(b"DELETED")
+            # pylint: disable=E1136
             except socket.error as msg:
                 if isinstance(msg, tuple):
                     msg = msg[1]
                 server.mark_dead(msg)
                 rc = 0
+            # pylint: enable=E1136
         return rc
 
-    def delete(self, key, time=None, noreply=False):
+    def delete(self, key, dtime=None, noreply=False):
         '''Deletes a key from the memcache.
 
         @return: Nonzero on success.
-        @param time: number of seconds any subsequent set / update commands
+        @param dtime: number of seconds any subsequent set / update commands
         should fail. Defaults to None for no delay.
         @param noreply: optional parameter instructs the server to not send the
             reply.
         @rtype: int
         '''
         return self._deletetouch([b'DELETED', b'NOT_FOUND'], "delete", key,
-                                 time, noreply)
+                                 dtime, noreply)
 
-    def touch(self, key, time=0, noreply=False):
+    def touch(self, key, ttime=0, noreply=False):
         '''Updates the expiration time of a key in memcache.
 
         @return: Nonzero on success.
-        @param time: Tells memcached the time which this value should
+        @param ttime: Tells memcached the time which this value should
             expire, either as a delta number of seconds, or an absolute
             unix time-since-the-epoch value. See the memcached protocol
             docs section "Storage Commands" for more info on <exptime>. We
@@ -544,9 +546,9 @@ class Client(threading.local):
             reply.
         @rtype: int
         '''
-        return self._deletetouch([b'TOUCHED'], "touch", key, time, noreply)
+        return self._deletetouch([b'TOUCHED'], "touch", key, ttime, noreply)
 
-    def _deletetouch(self, expected, cmd, key, time=0, noreply=False):
+    def _deletetouch(self, expected, cmd, key, dtime=0, noreply=False):
         key = self._encode_key(key)
         if self.do_check_key:
             self.check_key(key)
@@ -554,8 +556,8 @@ class Client(threading.local):
         if not server:
             return 0
         self._statlog(cmd)
-        if time is not None:
-            headers = str(time)
+        if dtime is not None:
+            headers = str(dtime)
         else:
             headers = None
         fullcmd = self._encode_cmd(cmd, key, headers, noreply)
@@ -649,7 +651,7 @@ class Client(threading.local):
             server.mark_dead(msg)
             return None
 
-    def add(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def add(self, key, val, atime=0, min_compress_len=0, noreply=False):
         '''Add new key with value.
 
         Like L{set}, but only stores in memcache if the key doesn't
@@ -658,9 +660,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("add", key, val, time, min_compress_len, noreply)
+        return self._set("add", key, val, atime, min_compress_len, noreply)
 
-    def append(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def append(self, key, val, atime=0, min_compress_len=0, noreply=False):
         '''Append the value to the end of the existing key's value.
 
         Only stores in memcache if key already exists.
@@ -669,7 +671,7 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("append", key, val, time, min_compress_len, noreply)
+        return self._set("append", key, val, atime, min_compress_len, noreply)
 
     def prepend(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Prepend the value to the beginning of the existing key's value.
