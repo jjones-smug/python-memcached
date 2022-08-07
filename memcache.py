@@ -415,7 +415,7 @@ class Client(threading.local):
     def _init_buckets(self):
         self.buckets = []
         for server in self.servers:
-            for i in range(server.weight):
+            for _ in range(server.weight):
                 self.buckets.append(server)
 
     def _get_server(self, key):
@@ -442,7 +442,7 @@ class Client(threading.local):
         for s in self.servers:
             s.close_socket()
 
-    def delete_multi(self, keys, time=None, key_prefix='', noreply=False):
+    def delete_multi(self, keys, dtime=None, key_prefix='', noreply=False):
         """Delete multiple keys in the memcache doing just one query.
 
         >>> notset_keys = mc.set_multi({'a1' : 'val1', 'a2' : 'val2'})
@@ -458,7 +458,7 @@ class Client(threading.local):
         for each round-trip of L{delete} before sending the next one.
 
         @param keys: An iterable of keys to clear
-        @param time: number of seconds any subsequent set / update
+        @param dtime: number of seconds any subsequent set / update
         commands should fail. Defaults to 0 for no delay.
         @param key_prefix: Optional string to prepend to each key when
             sending to memcache.  See docs for L{get_multi} and
@@ -481,8 +481,8 @@ class Client(threading.local):
         for server in six.iterkeys(server_keys):
             bigcmd = []
             write = bigcmd.append
-            if time is not None:
-                headers = str(time)
+            if dtime is not None:
+                headers = str(dtime)
             else:
                 headers = None
             for key in server_keys[server]:  # These are mangled keys
