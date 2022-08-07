@@ -1337,7 +1337,7 @@ class Client(threading.local):
                 "Control/space characters not allowed (key=%r)" % key)
 
 
-class _Host(object):
+class _Host():
 
     def __init__(self, host, debug=0, dead_retry=_DEAD_RETRY,
                  socket_timeout=_SOCKET_TIMEOUT, flush_on_reconnect=0):
@@ -1384,9 +1384,9 @@ class _Host(object):
 
         self.buffer = b''
 
-    def debuglog(self, str):
+    def debuglog(self, msg):
         if self.debug:
-            sys.stderr.write("MemCached: %s\n" % str)
+            sys.stderr.write("MemCached: %s\n" % msg)
 
     def _check_dead(self):
         if self.deaduntil and self.deaduntil > time.time():
@@ -1420,8 +1420,10 @@ class _Host(object):
             self.mark_dead("connect: %s" % msg)
             return None
         except socket.error as msg:
+            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
+            # pylint: enable=E1136
             self.mark_dead("connect: %s" % msg)
             return None
         self.socket = s
