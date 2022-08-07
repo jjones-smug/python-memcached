@@ -511,13 +511,13 @@ class Client(threading.local):
             try:
                 for key in skeys:
                     server.expect(b"DELETED")
-            # pylint: disable=E1136
             except socket.error as msg:
+                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
+                # pylint: enable=E1136
                 server.mark_dead(msg)
                 rc = 0
-            # pylint: enable=E1136
         return rc
 
     def delete(self, key, dtime=None, noreply=False):
@@ -572,8 +572,10 @@ class Client(threading.local):
             self.debuglog('%s expected %s, got: %r'
                           % (cmd, b' or '.join(expected), line))
         except socket.error as msg:
+            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
+            # pylint: enable=E1136
             server.mark_dead(msg)
         return 0
 
@@ -646,8 +648,10 @@ class Client(threading.local):
                 return None
             return int(line)
         except socket.error as msg:
+            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
+            # pylint: enable=E1136
             server.mark_dead(msg)
             return None
 
@@ -673,7 +677,7 @@ class Client(threading.local):
         '''
         return self._set("append", key, val, atime, min_compress_len, noreply)
 
-    def prepend(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def prepend(self, key, val, ptime=0, min_compress_len=0, noreply=False):
         '''Prepend the value to the beginning of the existing key's value.
 
         Only stores in memcache if key already exists.
@@ -682,9 +686,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("prepend", key, val, time, min_compress_len, noreply)
+        return self._set("prepend", key, val, ptime, min_compress_len, noreply)
 
-    def replace(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def replace(self, key, val, rtime=0, min_compress_len=0, noreply=False):
         '''Replace existing key with value.
 
         Like L{set}, but only stores in memcache if the key already exists.
@@ -693,9 +697,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("replace", key, val, time, min_compress_len, noreply)
+        return self._set("replace", key, val, rtime, min_compress_len, noreply)
 
-    def set(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def set(self, key, val, stime=0, min_compress_len=0, noreply=False):
         '''Unconditionally sets a key to a given value in the memcache.
 
         The C{key} can optionally be an tuple, with the first element
@@ -708,7 +712,7 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
 
-        @param time: Tells memcached the time which this value should
+        @param stime: Tells memcached the time which this value should
         expire, either as a delta number of seconds, or an absolute
         unix time-since-the-epoch value. See the memcached protocol
         docs section "Storage Commands" for more info on <exptime>. We
@@ -727,9 +731,9 @@ class Client(threading.local):
         @param noreply: optional parameter instructs the server to not
         send the reply.
         '''
-        return self._set("set", key, val, time, min_compress_len, noreply)
+        return self._set("set", key, val, stime, min_compress_len, noreply)
 
-    def cas(self, key, val, time=0, min_compress_len=0, noreply=False):
+    def cas(self, key, val, ctime=0, min_compress_len=0, noreply=False):
         '''Check and set (CAS)
 
         Sets a key to a given value in the memcache if it hasn't been
@@ -745,7 +749,7 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
 
-        @param time: Tells memcached the time which this value should
+        @param ctime: Tells memcached the time which this value should
         expire, either as a delta number of seconds, or an absolute
         unix time-since-the-epoch value. See the memcached protocol
         docs section "Storage Commands" for more info on <exptime>. We
@@ -764,7 +768,7 @@ class Client(threading.local):
         @param noreply: optional parameter instructs the server to not
         send the reply.
         '''
-        return self._set("cas", key, val, time, min_compress_len, noreply)
+        return self._set("cas", key, val, ctime, min_compress_len, noreply)
 
     def _map_and_prefix_keys(self, key_iterable, key_prefix):
         """Map keys to the servers they will reside on.
@@ -833,7 +837,7 @@ class Client(threading.local):
 
         return (server_keys, prefixed_to_orig_key)
 
-    def set_multi(self, mapping, time=0, key_prefix='', min_compress_len=0,
+    def set_multi(self, mapping, mtime=0, key_prefix='', min_compress_len=0,
                   noreply=False):
         '''Sets multiple keys in the memcache doing just one query.
 
@@ -850,7 +854,7 @@ class Client(threading.local):
 
         @param mapping: A dict of key/value pairs to set.
 
-        @param time: Tells memcached the time which this value should
+        @param mtime: Tells memcached the time which this value should
             expire, either as a delta number of seconds, or an
             absolute unix time-since-the-epoch value. See the
             memcached protocol docs section "Storage Commands" for
@@ -912,7 +916,7 @@ class Client(threading.local):
                         min_compress_len)
                     if store_info:
                         flags, len_val, val = store_info
-                        headers = "%d %d %d" % (flags, time, len_val)
+                        headers = "%d %d %d" % (flags, mtime, len_val)
                         fullcmd = self._encode_cmd('set', key, headers,
                                                    noreply,
                                                    b'\r\n', val, b'\r\n')
@@ -921,8 +925,10 @@ class Client(threading.local):
                         notstored.append(prefixed_to_orig_key[key])
                 server.send_cmds(b''.join(bigcmd))
             except socket.error as msg:
+                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
+                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -943,9 +949,8 @@ class Client(threading.local):
                 for key in keys:
                     if server.readline() == b'STORED':
                         continue
-                    else:
-                        # un-mangle.
-                        notstored.append(prefixed_to_orig_key[key])
+                    # un-mangle.
+                    notstored.append(prefixed_to_orig_key[key])
             except (_Error, socket.error) as msg:
                 if isinstance(msg, tuple):
                     msg = msg[1]
@@ -1012,7 +1017,7 @@ class Client(threading.local):
 
         return (flags, len(val), val)
 
-    def _set(self, cmd, key, val, time, min_compress_len=0, noreply=False):
+    def _set(self, cmd, key, val, stime, min_compress_len=0, noreply=False):
         key = self._encode_key(key)
         if self.do_check_key:
             self.check_key(key)
@@ -1024,7 +1029,7 @@ class Client(threading.local):
             self._statlog(cmd)
 
             if cmd == 'cas' and key not in self.cas_ids:
-                return self._set('set', key, val, time, min_compress_len,
+                return self._set('set', key, val, stime, min_compress_len,
                                  noreply)
 
             store_info = self._val_to_store_info(val, min_compress_len)
@@ -1034,9 +1039,9 @@ class Client(threading.local):
 
             if cmd == 'cas':
                 headers = ("%d %d %d %d"
-                           % (flags, time, len_val, self.cas_ids[key]))
+                           % (flags, stime, len_val, self.cas_ids[key]))
             else:
-                headers = "%d %d %d" % (flags, time, len_val)
+                headers = "%d %d %d" % (flags, stime, len_val)
             fullcmd = self._encode_cmd(cmd, key, headers, noreply,
                                        b'\r\n', encoded_val)
 
