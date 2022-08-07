@@ -45,9 +45,6 @@ More detailed documentation is available in the L{Client} class.
 
 """
 
-# pylint: disable=consider-using-f-string,invalid-name,missing-function-docstring,too-many-arguments,too-many-locals,missing-class-docstring,unused-variable
-# pylint: disable=global-statement,super-with-arguments
-
 from __future__ import print_function
 
 import binascii
@@ -61,7 +58,11 @@ import zlib
 
 import six
 
-import pickle
+if six.PY2:
+    # With Python 2, the faster C implementation has to be imported explicitly.
+    import cPickle as pickle
+else:
+    import pickle
 
 
 def cmemcache_hash(key):
@@ -126,7 +127,7 @@ class Client(threading.local):
     @group Integers: incr, decr
     @group Removal: delete, delete_multi
     @sort: __init__, set_servers, forget_dead_hosts, disconnect_all,
-           debuglog, set, set_multi, add, replace, get, get_multi,
+           debuglog,\ set, set_multi, add, replace, get, get_multi,
            incr, decr, delete, delete_multi
     """
     _FLAG_PICKLE = 1 << 0
@@ -397,9 +398,9 @@ class Client(threading.local):
                 continue
             s.flush()
 
-    def debuglog(self, msg):
+    def debuglog(self, str):
         if self.debug:
-            sys.stderr.write("MemCached: %s\n" % msg)
+            sys.stderr.write("MemCached: %s\n" % str)
 
     def _statlog(self, func):
         if func not in self.stats:
@@ -415,7 +416,7 @@ class Client(threading.local):
     def _init_buckets(self):
         self.buckets = []
         for server in self.servers:
-            for _ in range(server.weight):
+            for i in range(server.weight):
                 self.buckets.append(server)
 
     def _get_server(self, key):
@@ -442,7 +443,7 @@ class Client(threading.local):
         for s in self.servers:
             s.close_socket()
 
-    def delete_multi(self, keys, dtime=None, key_prefix='', noreply=False):
+    def delete_multi(self, keys, time=None, key_prefix='', noreply=False):
         """Delete multiple keys in the memcache doing just one query.
 
         >>> notset_keys = mc.set_multi({'a1' : 'val1', 'a2' : 'val2'})
@@ -458,7 +459,7 @@ class Client(threading.local):
         for each round-trip of L{delete} before sending the next one.
 
         @param keys: An iterable of keys to clear
-        @param dtime: number of seconds any subsequent set / update
+        @param time: number of seconds any subsequent set / update
         commands should fail. Defaults to 0 for no delay.
         @param key_prefix: Optional string to prepend to each key when
             sending to memcache.  See docs for L{get_multi} and
@@ -481,8 +482,8 @@ class Client(threading.local):
         for server in six.iterkeys(server_keys):
             bigcmd = []
             write = bigcmd.append
-            if dtime is not None:
-                headers = str(dtime)
+            if time is not None:
+                headers = str(time)
             else:
                 headers = None
             for key in server_keys[server]:  # These are mangled keys
@@ -492,10 +493,8 @@ class Client(threading.local):
                 server.send_cmds(b''.join(bigcmd))
             except socket.error as msg:
                 rc = 0
-                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
-                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -507,37 +506,35 @@ class Client(threading.local):
         for server in dead_servers:
             del server_keys[server]
 
-        for server, skeys in six.iteritems(server_keys):
+        for server, keys in six.iteritems(server_keys):
             try:
-                for key in skeys:
+                for key in keys:
                     server.expect(b"DELETED")
             except socket.error as msg:
-                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
-                # pylint: enable=E1136
                 server.mark_dead(msg)
                 rc = 0
         return rc
 
-    def delete(self, key, dtime=None, noreply=False):
+    def delete(self, key, time=None, noreply=False):
         '''Deletes a key from the memcache.
 
         @return: Nonzero on success.
-        @param dtime: number of seconds any subsequent set / update commands
+        @param time: number of seconds any subsequent set / update commands
         should fail. Defaults to None for no delay.
         @param noreply: optional parameter instructs the server to not send the
             reply.
         @rtype: int
         '''
         return self._deletetouch([b'DELETED', b'NOT_FOUND'], "delete", key,
-                                 dtime, noreply)
+                                 time, noreply)
 
-    def touch(self, key, ttime=0, noreply=False):
+    def touch(self, key, time=0, noreply=False):
         '''Updates the expiration time of a key in memcache.
 
         @return: Nonzero on success.
-        @param ttime: Tells memcached the time which this value should
+        @param time: Tells memcached the time which this value should
             expire, either as a delta number of seconds, or an absolute
             unix time-since-the-epoch value. See the memcached protocol
             docs section "Storage Commands" for more info on <exptime>. We
@@ -546,9 +543,9 @@ class Client(threading.local):
             reply.
         @rtype: int
         '''
-        return self._deletetouch([b'TOUCHED'], "touch", key, ttime, noreply)
+        return self._deletetouch([b'TOUCHED'], "touch", key, time, noreply)
 
-    def _deletetouch(self, expected, cmd, key, dtime=0, noreply=False):
+    def _deletetouch(self, expected, cmd, key, time=0, noreply=False):
         key = self._encode_key(key)
         if self.do_check_key:
             self.check_key(key)
@@ -556,8 +553,8 @@ class Client(threading.local):
         if not server:
             return 0
         self._statlog(cmd)
-        if dtime is not None:
-            headers = str(dtime)
+        if time is not None:
+            headers = str(time)
         else:
             headers = None
         fullcmd = self._encode_cmd(cmd, key, headers, noreply)
@@ -572,10 +569,8 @@ class Client(threading.local):
             self.debuglog('%s expected %s, got: %r'
                           % (cmd, b' or '.join(expected), line))
         except socket.error as msg:
-            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
-            # pylint: enable=E1136
             server.mark_dead(msg)
         return 0
 
@@ -648,14 +643,12 @@ class Client(threading.local):
                 return None
             return int(line)
         except socket.error as msg:
-            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
-            # pylint: enable=E1136
             server.mark_dead(msg)
             return None
 
-    def add(self, key, val, atime=0, min_compress_len=0, noreply=False):
+    def add(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Add new key with value.
 
         Like L{set}, but only stores in memcache if the key doesn't
@@ -664,9 +657,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("add", key, val, atime, min_compress_len, noreply)
+        return self._set("add", key, val, time, min_compress_len, noreply)
 
-    def append(self, key, val, atime=0, min_compress_len=0, noreply=False):
+    def append(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Append the value to the end of the existing key's value.
 
         Only stores in memcache if key already exists.
@@ -675,9 +668,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("append", key, val, atime, min_compress_len, noreply)
+        return self._set("append", key, val, time, min_compress_len, noreply)
 
-    def prepend(self, key, val, ptime=0, min_compress_len=0, noreply=False):
+    def prepend(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Prepend the value to the beginning of the existing key's value.
 
         Only stores in memcache if key already exists.
@@ -686,9 +679,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("prepend", key, val, ptime, min_compress_len, noreply)
+        return self._set("prepend", key, val, time, min_compress_len, noreply)
 
-    def replace(self, key, val, rtime=0, min_compress_len=0, noreply=False):
+    def replace(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Replace existing key with value.
 
         Like L{set}, but only stores in memcache if the key already exists.
@@ -697,9 +690,9 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
         '''
-        return self._set("replace", key, val, rtime, min_compress_len, noreply)
+        return self._set("replace", key, val, time, min_compress_len, noreply)
 
-    def set(self, key, val, stime=0, min_compress_len=0, noreply=False):
+    def set(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Unconditionally sets a key to a given value in the memcache.
 
         The C{key} can optionally be an tuple, with the first element
@@ -731,9 +724,9 @@ class Client(threading.local):
         @param noreply: optional parameter instructs the server to not
         send the reply.
         '''
-        return self._set("set", key, val, stime, min_compress_len, noreply)
+        return self._set("set", key, val, time, min_compress_len, noreply)
 
-    def cas(self, key, val, ctime=0, min_compress_len=0, noreply=False):
+    def cas(self, key, val, time=0, min_compress_len=0, noreply=False):
         '''Check and set (CAS)
 
         Sets a key to a given value in the memcache if it hasn't been
@@ -749,7 +742,7 @@ class Client(threading.local):
         @return: Nonzero on success.
         @rtype: int
 
-        @param ctime: Tells memcached the time which this value should
+        @param time: Tells memcached the time which this value should
         expire, either as a delta number of seconds, or an absolute
         unix time-since-the-epoch value. See the memcached protocol
         docs section "Storage Commands" for more info on <exptime>. We
@@ -768,7 +761,7 @@ class Client(threading.local):
         @param noreply: optional parameter instructs the server to not
         send the reply.
         '''
-        return self._set("cas", key, val, ctime, min_compress_len, noreply)
+        return self._set("cas", key, val, time, min_compress_len, noreply)
 
     def _map_and_prefix_keys(self, key_iterable, key_prefix):
         """Map keys to the servers they will reside on.
@@ -837,7 +830,7 @@ class Client(threading.local):
 
         return (server_keys, prefixed_to_orig_key)
 
-    def set_multi(self, mapping, mtime=0, key_prefix='', min_compress_len=0,
+    def set_multi(self, mapping, time=0, key_prefix='', min_compress_len=0,
                   noreply=False):
         '''Sets multiple keys in the memcache doing just one query.
 
@@ -854,7 +847,7 @@ class Client(threading.local):
 
         @param mapping: A dict of key/value pairs to set.
 
-        @param mtime: Tells memcached the time which this value should
+        @param time: Tells memcached the time which this value should
             expire, either as a delta number of seconds, or an
             absolute unix time-since-the-epoch value. See the
             memcached protocol docs section "Storage Commands" for
@@ -916,7 +909,7 @@ class Client(threading.local):
                         min_compress_len)
                     if store_info:
                         flags, len_val, val = store_info
-                        headers = "%d %d %d" % (flags, mtime, len_val)
+                        headers = "%d %d %d" % (flags, time, len_val)
                         fullcmd = self._encode_cmd('set', key, headers,
                                                    noreply,
                                                    b'\r\n', val, b'\r\n')
@@ -925,10 +918,8 @@ class Client(threading.local):
                         notstored.append(prefixed_to_orig_key[key])
                 server.send_cmds(b''.join(bigcmd))
             except socket.error as msg:
-                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
-                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -949,8 +940,9 @@ class Client(threading.local):
                 for key in keys:
                     if server.readline() == b'STORED':
                         continue
-                    # un-mangle.
-                    notstored.append(prefixed_to_orig_key[key])
+                    else:
+                        # un-mangle.
+                        notstored.append(prefixed_to_orig_key[key])
             except (_Error, socket.error) as msg:
                 if isinstance(msg, tuple):
                     msg = msg[1]
@@ -1017,7 +1009,7 @@ class Client(threading.local):
 
         return (flags, len(val), val)
 
-    def _set(self, cmd, key, val, stime, min_compress_len=0, noreply=False):
+    def _set(self, cmd, key, val, time, min_compress_len=0, noreply=False):
         key = self._encode_key(key)
         if self.do_check_key:
             self.check_key(key)
@@ -1029,7 +1021,7 @@ class Client(threading.local):
             self._statlog(cmd)
 
             if cmd == 'cas' and key not in self.cas_ids:
-                return self._set('set', key, val, stime, min_compress_len,
+                return self._set('set', key, val, time, min_compress_len,
                                  noreply)
 
             store_info = self._val_to_store_info(val, min_compress_len)
@@ -1039,9 +1031,9 @@ class Client(threading.local):
 
             if cmd == 'cas':
                 headers = ("%d %d %d %d"
-                           % (flags, stime, len_val, self.cas_ids[key]))
+                           % (flags, time, len_val, self.cas_ids[key]))
             else:
-                headers = "%d %d %d" % (flags, stime, len_val)
+                headers = "%d %d %d" % (flags, time, len_val)
             fullcmd = self._encode_cmd(cmd, key, headers, noreply,
                                        b'\r\n', encoded_val)
 
@@ -1051,10 +1043,8 @@ class Client(threading.local):
                     return True
                 return server.expect(b"STORED", raise_exception=True) == b"STORED"
             except socket.error as msg:
-                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
-                # pylint: enable=E1136
                 server.mark_dead(msg)
             return 0
 
@@ -1063,10 +1053,8 @@ class Client(threading.local):
         except _ConnectionDeadError:
             # retry once
             try:
-                # pylint: disable=protected-access
                 if server._get_socket():
                     return _unsafe_set()
-                # pylint: enable=protected-access
             except (_ConnectionDeadError, socket.error) as msg:
                 server.mark_dead(msg)
             return 0
@@ -1206,10 +1194,8 @@ class Client(threading.local):
                 fullcmd = b"get " + b" ".join(server_keys[server])
                 server.send_cmd(fullcmd)
             except socket.error as msg:
-                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
-                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -1239,27 +1225,23 @@ class Client(threading.local):
         if not line:
             line = server.readline(raise_exception)
 
-        # pylint: disable=no-else-return
         if line and line[:5] == b'VALUE':
-            resp, rkey, flags, _len, cas_id = line.split()
-            return (rkey, int(flags), int(_len), int(cas_id))
+            resp, rkey, flags, len, cas_id = line.split()
+            return (rkey, int(flags), int(len), int(cas_id))
         else:
             return (None, None, None, None)
-        # pylint: enable=no-else-return
 
     def _expectvalue(self, server, line=None, raise_exception=False):
         if not line:
             line = server.readline(raise_exception)
 
-        # pylint: disable=no-else-return
         if line and line[:5] == b'VALUE':
-            resp, rkey, flags, _len = line.split()
+            resp, rkey, flags, len = line.split()
             flags = int(flags)
-            rlen = int(_len)
+            rlen = int(len)
             return (rkey, flags, rlen)
         else:
             return (None, None, None)
-        # pylint: enable=no-else-return
 
     def _recv_value(self, server, flags, rlen):
         rlen += 2  # include \r\n
@@ -1282,9 +1264,11 @@ class Client(threading.local):
         elif flags & Client._FLAG_INTEGER:
             val = int(buf)
         elif flags & Client._FLAG_LONG:
-            val = int(buf)
+            if six.PY3:
+                val = int(buf)
+            else:
+                val = long(buf)  # noqa: F821
         elif flags & Client._FLAG_PICKLE:
-            # pylint: disable=broad-except
             try:
                 file = BytesIO(buf)
                 unpickler = self.unpickler(file)
@@ -1294,7 +1278,6 @@ class Client(threading.local):
             except Exception as e:
                 self.debuglog('Pickle error: %s\n' % e)
                 return None
-            # pylint: enable=broad-except
         else:
             self.debuglog("unknown flags on get: %x\n" % flags)
             raise ValueError('Unknown flags on get: %x' % flags)
@@ -1317,8 +1300,8 @@ class Client(threading.local):
             key = key[1]
         if key is None:
             raise Client.MemcachedKeyNoneError("Key is None")
-        if key == '':
-            if key_extra_len == 0:
+        if key is '':
+            if key_extra_len is 0:
                 raise Client.MemcachedKeyNoneError("Key is empty")
 
             #  key is empty but there is some other component to key
@@ -1337,7 +1320,7 @@ class Client(threading.local):
                 "Control/space characters not allowed (key=%r)" % key)
 
 
-class _Host():
+class _Host(object):
 
     def __init__(self, host, debug=0, dead_retry=_DEAD_RETRY,
                  socket_timeout=_SOCKET_TIMEOUT, flush_on_reconnect=0):
@@ -1384,9 +1367,9 @@ class _Host():
 
         self.buffer = b''
 
-    def debuglog(self, msg):
+    def debuglog(self, str):
         if self.debug:
-            sys.stderr.write("MemCached: %s\n" % msg)
+            sys.stderr.write("MemCached: %s\n" % str)
 
     def _check_dead(self):
         if self.deaduntil and self.deaduntil > time.time():
@@ -1420,10 +1403,8 @@ class _Host():
             self.mark_dead("connect: %s" % msg)
             return None
         except socket.error as msg:
-            # pylint: disable=E1136
             if isinstance(msg, tuple):
                 msg = msg[1]
-            # pylint: enable=E1136
             self.mark_dead("connect: %s" % msg)
             return None
         self.socket = s
@@ -1471,7 +1452,8 @@ class _Host():
                 self.mark_dead('connection closed in readline()')
                 if raise_exception:
                     raise _ConnectionDeadError()
-                return ''
+                else:
+                    return ''
 
             buf += data
         self.buffer = buf[index + 2:]
@@ -1493,9 +1475,9 @@ class _Host():
         self_socket_recv = self.socket.recv
         buf = self.buffer
         while len(buf) < rlen:
-            _foo = self_socket_recv(max(rlen - len(buf), 4096))
-            buf += _foo
-            if not _foo:
+            foo = self_socket_recv(max(rlen - len(buf), 4096))
+            buf += foo
+            if not foo:
                 raise _Error('Read %d bytes, expecting %d, '
                              'read returned 0 length bytes' % (len(buf), rlen))
         self.buffer = buf[rlen:]
@@ -1510,7 +1492,6 @@ class _Host():
         if self.deaduntil:
             d = " (dead until %d)" % self.deaduntil
 
-        # pylint: disable=no-else-return
         if self.family == socket.AF_INET:
             return "inet:%s:%d%s" % (self.address[0], self.address[1], d)
         elif self.family == socket.AF_INET6:
@@ -1520,7 +1501,6 @@ class _Host():
 
 
 def _doctest():
-    # pylint: disable=import-self,import-outside-toplevel
     import doctest
     import memcache
     servers = ["127.0.0.1:11211"]
