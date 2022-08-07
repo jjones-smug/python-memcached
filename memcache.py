@@ -980,13 +980,13 @@ class Client(threading.local):
                 val = val.encode('ascii')
             # force no attempt to compress this silly string.
             min_compress_len = 0
-        elif six.PY2 and isinstance(val, long):  # noqa: F821
-            flags |= Client._FLAG_LONG
-            val = str(val)
-            if six.PY3:
-                val = val.encode('ascii')
-            # force no attempt to compress this silly string.
-            min_compress_len = 0
+#        elif six.PY2 and isinstance(val, long):  # noqa: F821
+#            flags |= Client._FLAG_LONG
+#            val = str(val)
+#            if six.PY3:
+#                val = val.encode('ascii')
+#            # force no attempt to compress this silly string.
+#            min_compress_len = 0
         else:
             flags |= Client._FLAG_PICKLE
             file = BytesIO()
