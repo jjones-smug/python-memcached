@@ -1051,8 +1051,10 @@ class Client(threading.local):
                     return True
                 return server.expect(b"STORED", raise_exception=True) == b"STORED"
             except socket.error as msg:
+                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
+                # pylint: enable=E1136
                 server.mark_dead(msg)
             return 0
 
@@ -1061,8 +1063,10 @@ class Client(threading.local):
         except _ConnectionDeadError:
             # retry once
             try:
+                # pylint: disable=protected-access
                 if server._get_socket():
                     return _unsafe_set()
+                # pylint: enable=protected-access
             except (_ConnectionDeadError, socket.error) as msg:
                 server.mark_dead(msg)
             return 0
@@ -1202,8 +1206,10 @@ class Client(threading.local):
                 fullcmd = b"get " + b" ".join(server_keys[server])
                 server.send_cmd(fullcmd)
             except socket.error as msg:
+                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
+                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -1233,16 +1239,19 @@ class Client(threading.local):
         if not line:
             line = server.readline(raise_exception)
 
+        # pylint: disable=no-else-return
         if line and line[:5] == b'VALUE':
-            resp, rkey, flags, len, cas_id = line.split()
-            return (rkey, int(flags), int(len), int(cas_id))
+            resp, rkey, flags, _len, cas_id = line.split()
+            return (rkey, int(flags), int(_len), int(cas_id))
         else:
             return (None, None, None, None)
+        # pylint: enable=no-else-return
 
     def _expectvalue(self, server, line=None, raise_exception=False):
         if not line:
             line = server.readline(raise_exception)
 
+        # pylint: disable=no-else-return
         if line and line[:5] == b'VALUE':
             resp, rkey, flags, len = line.split()
             flags = int(flags)
@@ -1250,6 +1259,7 @@ class Client(threading.local):
             return (rkey, flags, rlen)
         else:
             return (None, None, None)
+        # pylint: enable=no-else-return
 
     def _recv_value(self, server, flags, rlen):
         rlen += 2  # include \r\n
