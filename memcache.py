@@ -492,8 +492,10 @@ class Client(threading.local):
                 server.send_cmds(b''.join(bigcmd))
             except socket.error as msg:
                 rc = 0
+                # pylint: disable=E1136
                 if isinstance(msg, tuple):
                     msg = msg[1]
+                # pylint: enable=E1136
                 server.mark_dead(msg)
                 dead_servers.append(server)
 
@@ -505,9 +507,9 @@ class Client(threading.local):
         for server in dead_servers:
             del server_keys[server]
 
-        for server, keys in six.iteritems(server_keys):
+        for server, skeys in six.iteritems(server_keys):
             try:
-                for key in keys:
+                for key in skeys:
                     server.expect(b"DELETED")
             except socket.error as msg:
                 if isinstance(msg, tuple):
